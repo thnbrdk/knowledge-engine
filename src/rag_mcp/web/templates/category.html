@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ category }}{% endblock %}
+
+{% block content %}
+<nav class="breadcrumbs">
+    <a href="/">~</a>
+    {% for bc in breadcrumbs %}
+    <span class="breadcrumbs__sep">/</span>
+    {% if loop.last %}
+    <span class="breadcrumbs__current">{{ bc.name }}</span>
+    {% else %}
+    <a href="/category/{{ bc.path }}">{{ bc.name }}</a>
+    {% endif %}
+    {% endfor %}
+</nav>
+
+<header class="page-header">
+    <h1 class="page-header__title">{{ category }}</h1>
+    <p class="page-header__subtitle">{{ documents|length }} file{{ 's' if documents|length != 1 else '' }} indexed</p>
+</header>
+
+{% if subcategories %}
+<section class="subcategories">
+    <h2 class="section-heading">subcategories</h2>
+    <div class="subcategory-list">
+        {% for sub in subcategories %}
+        <a href="/category/{{ sub.category }}" class="subcategory-chip">
+            {{ sub.category.split('/')|last }}/
+            <span class="subcategory-chip__count">{{ sub.doc_count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if documents %}
+<section class="doc-list">
+    <h2 class="section-heading">files</h2>
+    {% for doc in documents %}
+    <a href="/document/{{ doc.file_path }}" class="doc-list__item">
+        <div class="doc-list__info">
+            <span class="doc-list__title">{{ doc.title }}</span>
+            <span class="doc-list__path">{{ doc.file_path.split('/')|last }}</span>
+        </div>
+        {% if doc.categories|length > 1 %}
+        <div class="doc-list__tags">
+            {% for cat in doc.categories if cat != category %}
+            <span class="meta-tag meta-tag--small">{{ cat }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </a>
+    {% endfor %}
+</section>
+{% else %}
+<div class="empty-state">
+    <p class="empty-state__text">No files in this category yet.</p>
+</div>
+{% endif %}
+{% endblock %}

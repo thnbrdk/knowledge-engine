@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}search{% endblock %}
+
+{% block content %}
+<p class="comment-heading">// <span>search</span></p>
+<header class="page-header">
+    <h1 class="page-header__title">search<span class="page-header__cursor"></span></h1>
+    <p class="page-header__subtitle">$ full-text search across all indexed documents</p>
+</header>
+
+<form class="search-bar search-bar--full" action="/search" method="GET">
+    <input type="text" name="q" value="{{ query }}" placeholder="$ grep -ri ..." class="search-bar__input" autocomplete="off" autofocus>
+    <select name="category" class="search-bar__select">
+        <option value="">all categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat.category }}" {% if selected_category == cat.category %}selected{% endif %}>{{ cat.category }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="search-bar__btn">search</button>
+</form>
+
+{% if query %}
+<section class="search-results">
+    <p class="search-results__count">{{ results|length }} result{{ 's' if results|length != 1 else '' }} for "{{ query }}"</p>
+
+    {% if results %}
+    {% for r in results %}
+    <a href="/document/{{ r.file_path }}" class="search-result">
+        <h3 class="search-result__title">{{ r.title }}</h3>
+        <div class="search-result__meta">
+            <span class="meta-tag">{{ r.category }}</span>
+            <span class="meta-path">{{ r.file_path }}</span>
+        </div>
+        <p class="search-result__snippet">{{ r.snippet | safe }}</p>
+    </a>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <p class="empty-state__text">No results. Try different keywords.</p>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

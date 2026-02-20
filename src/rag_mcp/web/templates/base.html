@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}rag-mcp{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=2">
+    {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <nav class="topbar">
+        <a href="/" class="topbar__brand">
+            <span class="topbar__title">rag-mcp</span>
+        </a>
+        <div class="topbar__links">
+            <a href="/" class="topbar__link">~/home</a>
+            <a href="/search" class="topbar__link">~/search</a>
+            <a href="/admin" class="topbar__link topbar__link--admin">~/admin</a>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="site-footer">
+        <span class="site-footer__prompt">$</span> rag-mcp &middot; knowledge server
+    </footer>
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

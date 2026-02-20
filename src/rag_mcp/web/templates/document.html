@@ -1,0 +1,695 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/vendor/codemirror/codemirror.min.css" />
+<style>
+    /* CodeMirror dark theme matching terminal aesthetic */
+    .cm-s-rag.CodeMirror { background: #0a0a0a; color: #e5e5e5; }
+    .cm-s-rag .CodeMirror-gutters { background: #080808; border-right: 1px solid #1e1e1e; }
+    .cm-s-rag .CodeMirror-linenumber { color: #525252; }
+    .cm-s-rag .CodeMirror-cursor { border-left: 2px solid #e5e5e5; }
+    .cm-s-rag .CodeMirror-selected { background: rgba(255, 255, 255, 0.08); }
+    .cm-s-rag .CodeMirror-activeline-background { background: rgba(255,255,255,0.03); }
+    .cm-s-rag div.CodeMirror-selected { background: rgba(255, 255, 255, 0.08); }
+    .cm-s-rag .CodeMirror-focused div.CodeMirror-selected { background: rgba(255, 255, 255, 0.1); }
+    .cm-s-rag .cm-header { color: #e5e5e5; font-weight: 600; }
+    .cm-s-rag .cm-strong { color: #e5e5e5; font-weight: 700; }
+    .cm-s-rag .cm-em { color: #a3a3a3; font-style: italic; }
+    .cm-s-rag .cm-link { color: #3b82f6; }
+    .cm-s-rag .cm-url { color: #525252; }
+    .cm-s-rag .cm-comment { color: #525252; }
+    .cm-s-rag .cm-quote { color: #737373; font-style: italic; }
+    .cm-s-rag .cm-tag { color: #ef4444; }
+    .cm-s-rag .cm-attribute { color: #eab308; }
+    .cm-s-rag .cm-string { color: #a3a3a3; }
+    .cm-s-rag .cm-string-2 { color: #737373; }
+    .cm-s-rag .cm-keyword { color: #eab308; }
+    .cm-s-rag .cm-atom { color: #3b82f6; }
+    .cm-s-rag .cm-number { color: #3b82f6; }
+    .cm-s-rag .cm-variable { color: #e5e5e5; }
+    .cm-s-rag .cm-variable-2 { color: #a3a3a3; }
+    .cm-s-rag .cm-hr { color: #525252; }
+    .cm-s-rag .cm-formatting-list { color: #737373; }
+    .cm-s-rag .cm-formatting-code { color: #525252; }
+    .cm-s-rag .cm-formatting-code-block { color: #525252; }
+    .cm-s-rag .cm-formatting-header { color: #525252; }
+    .cm-s-rag .cm-image-marker { color: #3b82f6; }
+    .cm-s-rag .CodeMirror-matchingbracket { color: #e5e5e5 !important; text-decoration: underline; }
+    .cm-s-rag .CodeMirror-scrollbar-filler { background: #0a0a0a; }
+
+    .revision-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        margin: 0.6rem 0 0.8rem 0;
+    }
+    .revision-tools__label {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+    .revision-tools__select {
+        min-width: 110px;
+        padding: 0.35rem 0.5rem;
+        background: var(--bg-input);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-family: var(--font);
+        font-size: 0.8rem;
+    }
+    .compare-split {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+    .compare-split__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+    }
+    .diff-panel {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-card);
+        overflow: auto;
+    }
+    .diff-panel__header {
+        padding: 0.5rem 0.7rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        background: var(--bg-surface);
+    }
+    .diff-panel__body {
+        padding: 0;
+        overflow: auto;
+        font-family: var(--font);
+        font-size: 0.8rem;
+        min-height: 340px;
+    }
+    .diff-panel__body .diff-line {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        line-height: 1.45;
+        padding: 0.14rem 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .diff-panel__body .diff-line--add {
+        background: rgba(34, 197, 94, 0.22);
+    }
+    .diff-panel__body .diff-line--del {
+        background: rgba(239, 68, 68, 0.22);
+    }
+    .diff-panel__body .diff-line--same {
+        color: var(--text-secondary);
+    }
+    .diff-panel__body .diff-line--empty {
+        color: transparent;
+        user-select: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav class="breadcrumbs">
+    <a href="/">~</a>
+    <span class="breadcrumbs__sep">/</span>
+    <a href="/category/{{ doc.category }}">{{ doc.category }}</a>
+    <span class="breadcrumbs__sep">/</span>
+    <span class="breadcrumbs__current">{{ doc.title }}</span>
+</nav>
+
+<div class="document-badge-row">
+    {% for cat in doc.categories %}
+    <a href="/category/{{ cat }}" class="meta-tag">{{ cat }}</a>
+    {% endfor %}
+    <button class="btn btn--small btn--ghost" id="edit-categories" title="Edit categories">+</button>
+</div>
+
+<div class="document-layout" id="doc-layout">
+    <article class="document-content">
+        <div class="document-content__bar">
+            <span class="document-content__bartitle">{{ doc.file_path }}</span>
+            <div class="document-content__bar-actions">
+                <button class="btn btn--small btn--ghost editor-mode-btn editor-mode-btn--active" id="btn-preview" title="Preview mode">preview</button>
+                <button class="btn btn--small btn--ghost editor-mode-btn" id="btn-split" title="Split view">split</button>
+                <button class="btn btn--small btn--ghost editor-mode-btn" id="btn-edit" title="Edit mode">edit</button>
+            </div>
+        </div>
+        <div class="document-content__inner" id="content-inner">
+            <header class="document-content__header">
+                <h1 class="document-content__title">{{ doc.title }}</h1>
+                <div class="document-content__meta">
+                    <select class="meta-status-select meta-status--{{ doc.status or 'draft' }}" id="status-select" data-filepath="{{ doc.file_path }}" data-original="{{ doc.status or 'draft' }}">
+                        <option value="draft" {% if (doc.status or 'draft') == 'draft' %}selected{% endif %}>draft</option>
+                        <option value="approved" {% if doc.status == 'approved' %}selected{% endif %}>approved</option>
+                        <option value="in_review" {% if doc.status == 'in_review' %}selected{% endif %}>in review</option>
+                    </select>
+                </div>
+                <div class="document-meta-bar">
+                    <span class="document-meta-bar__item">
+                        <span class="document-meta-bar__label">revision</span>
+                        <span class="document-meta-bar__value">r{{ doc.revision or 1 }}</span>
+                    </span>
+                    <span class="document-meta-bar__item">
+                        <span class="document-meta-bar__label">author</span>
+                        <span class="document-meta-bar__value" id="author-value">{{ doc.author or 'Local' }}</span>
+                    </span>
+                    <span class="document-meta-bar__item">
+                        <span class="document-meta-bar__label">created</span>
+                        <span class="document-meta-bar__value">{{ doc.date or '—' }}</span>
+                    </span>
+                    <span class="document-meta-bar__item">
+                        <span class="document-meta-bar__label">updated</span>
+                        <span class="document-meta-bar__value">{{ (doc.updated_at or '')[:10] or '—' }}</span>
+                    </span>
+                    {% if doc.status == 'approved' and doc.approved_by %}
+                    <span class="document-meta-bar__item document-meta-bar__item--approved">
+                        <span class="document-meta-bar__label">approved by</span>
+                        <span class="document-meta-bar__value">{{ doc.approved_by }}</span>
+                    </span>
+                    {% endif %}
+                    {% if doc.status == 'in_review' and doc.in_review_by %}
+                    <span class="document-meta-bar__item document-meta-bar__item--in-review">
+                        <span class="document-meta-bar__label">in review by</span>
+                        <span class="document-meta-bar__value">{{ doc.in_review_by }}</span>
+                    </span>
+                    {% endif %}
+                </div>
+
+                <div class="revision-tools">
+                    <span class="revision-tools__label">compare</span>
+                    <select class="revision-tools__select" id="compare-left">
+                        {% if revisions %}
+                        {% for rev in revisions %}
+                        <option value="{{ rev.revision }}" {% if rev.revision == (doc.revision or 1) %}selected{% endif %}>r{{ rev.revision }} ({{ rev.status }})</option>
+                        {% endfor %}
+                        {% else %}
+                        <option value="{{ doc.revision or 1 }}">r{{ doc.revision or 1 }} ({{ doc.status or 'draft' }})</option>
+                        {% endif %}
+                    </select>
+                    <span class="revision-tools__label">vs</span>
+                    <select class="revision-tools__select" id="compare-right">
+                        {% if revisions %}
+                        {% for rev in revisions %}
+                        <option value="{{ rev.revision }}" {% if latest_approved and rev.revision == latest_approved.revision %}selected{% elif (not latest_approved) and loop.first %}selected{% endif %}>r{{ rev.revision }} ({{ rev.status }})</option>
+                        {% endfor %}
+                        {% else %}
+                        <option value="{{ doc.revision or 1 }}">r{{ doc.revision or 1 }} ({{ doc.status or 'draft' }})</option>
+                        {% endif %}
+                    </select>
+                    <button class="btn btn--small btn--ghost" id="btn-compare" title="Compare revisions in split view">compare</button>
+                    {% if (revisions|length) < 2 %}
+                    <span class="revision-tools__label">(need 2+ revisions)</span>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- Preview-only view -->
+            <div class="prose" id="prose-view">
+                {{ rendered_content | safe }}
+            </div>
+
+            <!-- Editor view (hidden by default) -->
+            <div class="editor-pane" id="editor-pane" style="display:none;">
+                <div class="editor-pane__cm" id="cm-edit"></div>
+                <div class="editor-pane__statusbar">
+                    <span class="editor-pane__status" id="editor-status">ready</span>
+                    <span class="editor-pane__info" id="editor-info"></span>
+                    <div class="editor-pane__actions">
+                        <button class="btn btn--accent btn--small" id="editor-save">save</button>
+                        <button class="btn btn--small btn--ghost" id="editor-cancel">discard</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Split-view (hidden by default) -->
+            <div class="editor-split" id="editor-split" style="display:none;">
+                <div class="editor-split__row">
+                    <div class="editor-split__editor">
+                        <div class="editor-split__cm" id="cm-split"></div>
+                    </div>
+                    <div class="editor-split__divider"></div>
+                    <div class="editor-split__preview" id="split-preview-wrap">
+                        <div class="prose" id="split-preview"></div>
+                    </div>
+                </div>
+                <div class="editor-pane__statusbar editor-split__statusbar">
+                    <span class="editor-pane__status" id="split-status">ready</span>
+                    <span class="editor-pane__info" id="split-info"></span>
+                    <div class="editor-pane__actions">
+                        <button class="btn btn--accent btn--small" id="split-save">save</button>
+                        <button class="btn btn--small btn--ghost" id="split-cancel">discard</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revision compare split (hidden by default) -->
+            <div class="compare-split" id="compare-split" style="display:none;">
+                <div class="compare-split__row">
+                    <div class="diff-panel">
+                        <div class="diff-panel__header" id="compare-left-label">left</div>
+                        <div class="diff-panel__body" id="compare-left-body"></div>
+                    </div>
+                    <div class="diff-panel">
+                        <div class="diff-panel__header" id="compare-right-label">right</div>
+                        <div class="diff-panel__body" id="compare-right-body"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </article>
+
+    {% if related %}
+    <aside class="document-sidebar" id="doc-sidebar">
+        <div class="sidebar-section">
+            <h3 class="sidebar-section__title">related</h3>
+            <ul class="related-list">
+                {% for r in related %}
+                <li>
+                    <a href="/document/{{ r.file_path }}" class="related-list__link">
+                        <span class="related-list__title">{{ r.title }}</span>
+                        <span class="related-list__category">{{ r.category }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+    {% endif %}
+</div>
+
+<!-- Hidden textarea to hold raw content for JS -->
+<textarea id="raw-content" style="display:none">{{ doc.content }}</textarea>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/vendor/codemirror/codemirror.min.js"></script>
+<script src="/static/vendor/codemirror/addon-mode-overlay.min.js"></script>
+<script src="/static/vendor/codemirror/mode-markdown-markdown.min.js"></script>
+<script src="/static/vendor/codemirror/mode-xml-xml.min.js"></script>
+<script src="/static/vendor/codemirror/mode-gfm-gfm.min.js"></script>
+<script src="/static/vendor/codemirror/addon-edit-continuelist.min.js"></script>
+<script src="/static/vendor/codemirror/addon-selection-active-line.min.js"></script>
+<script>
+(function() {
+    var select = document.getElementById('status-select');
+    var filePath = select.dataset.filepath;
+    var originalStatus = select.dataset.original;
+    var rawContent = document.getElementById('raw-content').value;
+    var originalContent = rawContent;
+    var filePathEncoded = encodeURIComponent(filePath);
+    var currentAuthor = {{ (doc.author or 'Local') | tojson }};
+
+    function applyStatusClass(value) {
+        select.classList.remove('meta-status--draft', 'meta-status--in_review', 'meta-status--approved');
+        select.classList.add('meta-status--' + value);
+    }
+    applyStatusClass(select.value || 'draft');
+
+    // ── CodeMirror config ──
+    var cmConfig = {
+        mode: 'gfm',
+        theme: 'rag',
+        lineNumbers: true,
+        lineWrapping: true,
+        styleActiveLine: true,
+        indentUnit: 4,
+        tabSize: 4,
+        indentWithTabs: false,
+        extraKeys: {
+            'Tab': function(cm) {
+                cm.replaceSelection('    ', 'end');
+            },
+            'Enter': 'newlineAndIndentContinueMarkdownList',
+            'Ctrl-S': function() { saveDocument(); },
+            'Cmd-S': function() { saveDocument(); }
+        }
+    };
+
+    // Create CodeMirror instances (lazy — only when mode activates)
+    var cmEdit = null;
+    var cmSplit = null;
+
+    function getCmEdit() {
+        if (!cmEdit) {
+            cmEdit = CodeMirror(document.getElementById('cm-edit'), Object.assign({}, cmConfig, {
+                value: rawContent
+            }));
+            cmEdit.on('change', function() { markDirty(); updateInfo('editor-info', cmEdit); });
+            cmEdit.on('cursorActivity', function() { updateInfo('editor-info', cmEdit); });
+        }
+        return cmEdit;
+    }
+
+    function getCmSplit() {
+        if (!cmSplit) {
+            cmSplit = CodeMirror(document.getElementById('cm-split'), Object.assign({}, cmConfig, {
+                value: rawContent
+            }));
+            cmSplit.on('change', function() {
+                markDirty();
+                updateInfo('split-info', cmSplit);
+                renderPreview(cmSplit.getValue());
+            });
+            cmSplit.on('cursorActivity', function() { updateInfo('split-info', cmSplit); });
+            // Scroll sync: editor → preview
+            cmSplit.on('scroll', function() {
+                var scrollInfo = cmSplit.getScrollInfo();
+                var pct = scrollInfo.top / Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+                var previewWrap = document.getElementById('split-preview-wrap');
+                previewWrap.scrollTop = pct * (previewWrap.scrollHeight - previewWrap.clientHeight);
+            });
+        }
+        return cmSplit;
+    }
+
+    function updateInfo(elId, cm) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+        var cursor = cm.getCursor();
+        var lines = cm.lineCount();
+        var chars = cm.getValue().length;
+        el.textContent = 'Ln ' + (cursor.line + 1) + ', Col ' + (cursor.ch + 1) + '  |  ' + lines + ' lines, ' + chars + ' chars';
+    }
+
+    // Get current content from whichever editor is active
+    function getCurrentContent() {
+        if (cmSplit) return cmSplit.getValue();
+        if (cmEdit) return cmEdit.getValue();
+        return originalContent;
+    }
+
+    // Sync content between editors
+    function syncEditors() {
+        var content = getCurrentContent();
+        if (cmEdit) cmEdit.setValue(content);
+        if (cmSplit) cmSplit.setValue(content);
+    }
+
+    // ── Status select ──
+    select.addEventListener('change', function() {
+        var newStatus = select.value;
+        applyStatusClass(newStatus);
+        var data = { status: newStatus };
+
+        if (newStatus === 'approved') {
+            var approver = prompt('Enter approved by:');
+            if (approver === null) { select.value = originalStatus; applyStatusClass(originalStatus); return; }
+            var approverName = approver.trim();
+            if (approverName) data.approved_by = approverName;
+            data.in_review_by = '';
+            if (originalStatus === 'draft' && (currentAuthor === 'Local' || currentAuthor === 'AI-Agent') && approverName) {
+                data.author = approverName;
+            }
+        } else if (newStatus === 'in_review') {
+            var reviewer = prompt('Enter in review by:');
+            if (reviewer === null) { select.value = originalStatus; applyStatusClass(originalStatus); return; }
+            var reviewerName = reviewer.trim();
+            if (reviewerName) data.in_review_by = reviewerName;
+            data.approved_by = '';
+            if (originalStatus === 'draft' && (currentAuthor === 'Local' || currentAuthor === 'AI-Agent') && reviewerName) {
+                data.author = reviewerName;
+            }
+        } else {
+            data.approved_by = '';
+            data.in_review_by = '';
+        }
+
+        fetch('/api/documents/' + filePath + '/metadata', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.status === 'updated') {
+                showToast('Status updated', 'success');
+                setTimeout(function() { location.reload(); }, 1000);
+            }
+        })
+        .catch(function() {
+            select.value = originalStatus;
+            applyStatusClass(originalStatus);
+            showToast('Failed to update status', 'error');
+        });
+    });
+
+    // ── Mode buttons ──
+    var btnPreview = document.getElementById('btn-preview');
+    var btnSplit = document.getElementById('btn-split');
+    var btnEdit = document.getElementById('btn-edit');
+    var btnCompare = document.getElementById('btn-compare');
+    var proseView = document.getElementById('prose-view');
+    var editorPane = document.getElementById('editor-pane');
+    var editorSplit = document.getElementById('editor-split');
+    var compareSplit = document.getElementById('compare-split');
+    var layout = document.getElementById('doc-layout');
+    var container = layout ? layout.closest('.container') : null;
+
+    function setMode(mode) {
+        proseView.style.display = 'none';
+        editorPane.style.display = 'none';
+        editorSplit.style.display = 'none';
+        compareSplit.style.display = 'none';
+        btnPreview.classList.remove('editor-mode-btn--active');
+        btnSplit.classList.remove('editor-mode-btn--active');
+        btnEdit.classList.remove('editor-mode-btn--active');
+
+        if (mode === 'preview') {
+            proseView.style.display = '';
+            btnPreview.classList.add('editor-mode-btn--active');
+            if (layout) layout.classList.remove('document-layout--wide');
+            if (container) container.classList.remove('container--wide');
+        } else if (mode === 'edit') {
+            editorPane.style.display = 'flex';
+            btnEdit.classList.add('editor-mode-btn--active');
+            if (layout) layout.classList.remove('document-layout--wide');
+            if (container) container.classList.remove('container--wide');
+            // Must show BEFORE creating/refreshing CodeMirror
+            var cm = getCmEdit();
+            if (cmSplit) cm.setValue(cmSplit.getValue());
+            setTimeout(function() { cm.refresh(); cm.focus(); }, 50);
+        } else if (mode === 'split') {
+            editorSplit.style.display = 'flex';
+            btnSplit.classList.add('editor-mode-btn--active');
+            if (layout) layout.classList.add('document-layout--wide');
+            if (container) container.classList.add('container--wide');
+            // Must show BEFORE creating/refreshing CodeMirror
+            var cm = getCmSplit();
+            if (cmEdit) cm.setValue(cmEdit.getValue());
+            renderPreview(cm.getValue());
+            setTimeout(function() { cm.refresh(); cm.focus(); }, 50);
+        } else if (mode === 'compare') {
+            compareSplit.style.display = 'flex';
+            if (layout) layout.classList.add('document-layout--wide');
+            if (container) container.classList.add('container--wide');
+            loadComparison();
+        }
+    }
+
+    btnPreview.addEventListener('click', function() { setMode('preview'); });
+    btnEdit.addEventListener('click', function() { setMode('edit'); });
+    btnSplit.addEventListener('click', function() { setMode('split'); });
+    if (btnCompare) {
+        btnCompare.addEventListener('click', function() { setMode('compare'); });
+    }
+
+    function loadComparison() {
+        var left = document.getElementById('compare-left').value;
+        var right = document.getElementById('compare-right').value;
+        if (!left || !right) {
+            showToast('Select both revisions to compare', 'error');
+            return;
+        }
+        fetch('/api/documents/compare?file_path=' + filePathEncoded + '&left=' + encodeURIComponent(left) + '&right=' + encodeURIComponent(right))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+                document.getElementById('compare-left-label').textContent = 'revision r' + data.left.revision;
+                document.getElementById('compare-right-label').textContent = 'revision r' + data.right.revision;
+                document.getElementById('compare-left-body').innerHTML = data.left_diff_html || '';
+                document.getElementById('compare-right-body').innerHTML = data.right_diff_html || '';
+            })
+            .catch(function() {
+                showToast('Failed to load revision comparison', 'error');
+            });
+    }
+
+    var compareLeft = document.getElementById('compare-left');
+    var compareRight = document.getElementById('compare-right');
+    if (btnCompare && compareLeft && compareLeft.options.length < 2) {
+        btnCompare.disabled = true;
+    }
+    if (compareLeft && compareRight) {
+        compareLeft.addEventListener('change', function() {
+            if (compareSplit.style.display !== 'none') loadComparison();
+        });
+        compareRight.addEventListener('change', function() {
+            if (compareSplit.style.display !== 'none') loadComparison();
+        });
+    }
+
+    // ── Live preview rendering ──
+    var previewTimer = null;
+    function renderPreview(md) {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(function() {
+            // Parse tables before other transforms
+            md = md.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, function(block) {
+                var rows = block.trim().split('\n');
+                if (rows.length < 2) return block;
+                // Check row 2 is a separator (| --- | --- |)
+                if (!/^\|[\s\-:]+(\|[\s\-:]+)+\|?\s*$/.test(rows[1])) return block;
+                var parseRow = function(row) {
+                    return row.replace(/^\|/, '').replace(/\|$/, '').split('|').map(function(c) { return c.trim(); });
+                };
+                var headers = parseRow(rows[0]);
+                var thead = '<thead><tr>' + headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead>';
+                var tbody = '<tbody>';
+                for (var i = 2; i < rows.length; i++) {
+                    var cells = parseRow(rows[i]);
+                    tbody += '<tr>' + cells.map(function(c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+                }
+                tbody += '</tbody>';
+                return '<table>' + thead + tbody + '</table>\n';
+            });
+
+            var html = md
+                // Code blocks (fenced)
+                .replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
+                    return '<pre><code class="language-' + lang + '">' + code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+                })
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                .replace(/\n{2,}/g, '</p><p>');
+            document.getElementById('split-preview').innerHTML = '<p>' + html + '</p>';
+        }, 200);
+    }
+
+    // ── Dirty state ──
+    var isDirty = false;
+    function markDirty() {
+        isDirty = true;
+        ['editor-status', 'split-status'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) { el.textContent = '● modified'; el.classList.add('editor-pane__status--dirty'); }
+        });
+    }
+
+    function markClean() {
+        isDirty = false;
+        ['editor-status', 'split-status'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) { el.textContent = 'saved'; el.classList.remove('editor-pane__status--dirty'); }
+        });
+    }
+
+    // ── Save ──
+    function saveDocument() {
+        var content = getCurrentContent();
+        ['editor-status', 'split-status'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = 'saving…';
+        });
+
+        fetch('/api/documents/' + filePath + '/content', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.status === 'updated') {
+                showToast('Document saved as revision r' + result.revision + ' (status: ' + result.document_status + ')', 'success');
+                originalContent = content;
+                markClean();
+                setTimeout(function() { location.reload(); }, 1200);
+            } else {
+                showToast(result.error || 'Failed to save', 'error');
+                ['editor-status', 'split-status'].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.textContent = 'error';
+                });
+            }
+        })
+        .catch(function() {
+            showToast('Failed to save document', 'error');
+            ['editor-status', 'split-status'].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.textContent = 'error';
+            });
+        });
+    }
+
+    document.getElementById('editor-save').addEventListener('click', saveDocument);
+    document.getElementById('split-save').addEventListener('click', saveDocument);
+
+    document.getElementById('editor-cancel').addEventListener('click', function() {
+        if (cmEdit) cmEdit.setValue(originalContent);
+        if (cmSplit) cmSplit.setValue(originalContent);
+        isDirty = false;
+        setMode('preview');
+    });
+    document.getElementById('split-cancel').addEventListener('click', function() {
+        if (cmEdit) cmEdit.setValue(originalContent);
+        if (cmSplit) cmSplit.setValue(originalContent);
+        isDirty = false;
+        setMode('preview');
+    });
+
+    window.addEventListener('beforeunload', function(e) {
+        if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    function showToast(msg, type) {
+        var toast = document.createElement('div');
+        toast.className = 'toast toast--visible toast--' + type;
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.remove(); }, 2500);
+    }
+
+    // ── Category editing ──
+    var editCatBtn = document.getElementById('edit-categories');
+    if (editCatBtn) {
+        editCatBtn.addEventListener('click', function() {
+            var current = {{ doc.categories | tojson }};
+            var input = prompt('Edit categories (comma-separated):', current.join(', '));
+            if (input === null) return;
+            var cats = input.trim().length === 0
+                ? []
+                : input.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+            fetch('/api/documents/' + filePath + '/metadata', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ categories: cats })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (result.status === 'updated') {
+                    showToast('Categories updated', 'success');
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    showToast(result.error || 'Failed to update', 'error');
+                }
+            })
+            .catch(function() {
+                showToast('Failed to update categories', 'error');
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}

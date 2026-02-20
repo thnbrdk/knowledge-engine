@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}admin{% endblock %}
+{% block body_class %}admin-theme{% endblock %}
+
+{% block content %}
+<p class="comment-heading">// <span>admin_panel</span></p>
+<header class="page-header">
+    <h1 class="page-header__title">admin<span class="page-header__cursor"></span></h1>
+    <p class="page-header__subtitle">$ manage indexes, categories, and system operations</p>
+</header>
+
+{% if admin_token_required %}
+<div id="auth-gate" class="auth-gate">
+    <div class="auth-gate__form">
+        <label class="auth-gate__label">enter access token</label>
+        <input type="password" id="admin-token-input" class="auth-gate__input" placeholder="••••••••">
+        <button onclick="setAdminToken()" class="btn btn--accent">authenticate</button>
+    </div>
+</div>
+{% endif %}
+
+<div id="admin-content" {% if admin_token_required %}style="display:none"{% endif %}>
+    <!-- Stats overview -->
+    <section class="admin-stats" id="admin-stats">
+        <div class="stat-card">
+            <span class="stat-card__value" id="stat-docs">{{ stats.total_docs }}</span>
+            <span class="stat-card__label">documents</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card__value" id="stat-cats">{{ stats.total_categories }}</span>
+            <span class="stat-card__label">categories</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card__value" id="stat-sqlite">&mdash;</span>
+            <span class="stat-card__label">fts_index</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-card__value" id="stat-vector">&mdash;</span>
+            <span class="stat-card__label">vector_store</span>
+        </div>
+    </section>
+
+    <!-- Bulk actions -->
+    <section class="admin-section">
+        <h2 class="section-heading">operations</h2>
+        <div class="admin-actions">
+            <button onclick="reindexAll()" class="btn btn--accent" id="btn-reindex-all">
+                $ reindex --all
+            </button>
+            <a href="/api/admin/export?mode=all" class="btn btn--secondary" id="btn-export-all">
+                $ export --all
+            </a>
+            <a href="/api/admin/export?mode=newest" class="btn btn--secondary" id="btn-export-newest">
+                $ export --newest
+            </a>
+            <a href="/api/admin/export?mode=newest_approved" class="btn btn--secondary" id="btn-export-approved">
+                $ export --newest-approved
+            </a>
+        </div>
+    </section>
+
+    <!-- Category table -->
+    <section class="admin-section">
+        <h2 class="section-heading">categories</h2>
+        <div class="category-table-wrap">
+            <table class="category-table">
+                <thead>
+                    <tr>
+                        <th>path</th>
+                        <th>files</th>
+                        <th>actions</th>
+                    </tr>
+                </thead>
+                <tbody id="category-table-body">
+                    {% for cat in categories %}
+                    <tr data-category="{{ cat.category }}">
+                        <td>
+                            <a href="/category/{{ cat.category }}" class="category-table__link">{{ cat.category }}</a>
+                        </td>
+                        <td>{{ cat.doc_count }}</td>
+                        <td class="category-table__actions">
+                            <button onclick="reindexCategory('{{ cat.category }}')" class="btn btn--small btn--secondary">reindex</button>
+                            <a href="/api/admin/export?mode=all&category={{ cat.category }}" class="btn btn--small btn--secondary" download>export all</a>
+                            <a href="/api/admin/export?mode=newest&category={{ cat.category }}" class="btn btn--small btn--secondary" download>export newest</a>
+                            <a href="/api/admin/export?mode=newest_approved&category={{ cat.category }}" class="btn btn--small btn--secondary" download>export approved</a>
+                            <button onclick="deleteCategory('{{ cat.category }}')" class="btn btn--small btn--danger">rm -rf</button>
+                            <a href="/category/{{ cat.category }}" class="btn btn--small btn--ghost">ls</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Review queue -->
+    <section class="admin-section">
+        <h2 class="section-heading">review queue</h2>
+        {% if review_queue %}
+        <div class="category-table-wrap">
+            <table class="category-table">
+                <thead>
+                    <tr>
+                        <th>title</th>
+                        <th>category</th>
+                        <th>status</th>
+                        <th>author</th>
+                        <th>in review by</th>
+                        <th>updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in review_queue %}
+                    <tr>
+                        <td>
+                            <a href="/document/{{ doc.file_path }}" class="category-table__link">{{ doc.title }}</a>
+                        </td>
+                        <td>{{ doc.category }}</td>
+                        <td><span class="meta-status meta-status--{{ doc.status }}">{{ doc.status }}</span></td>
+                        <td>{{ doc.author or '—' }}</td>
+                        <td>{{ doc.in_review_by or '—' }}</td>
+                        <td class="review-queue__date">{{ doc.updated_at or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty-state__text">No documents need review. All approved.</p>
+        {% endif %}
+    </section>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load stats on page load
+    if (document.getElementById('admin-content').style.display !== 'none') {
+        loadAdminStats();
+    }
+</script>
+{% endblock %}

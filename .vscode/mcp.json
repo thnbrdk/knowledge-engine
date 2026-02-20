@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "rag-mcp": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "rag-mcp"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

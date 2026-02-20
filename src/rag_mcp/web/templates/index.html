@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}rag-mcp{% endblock %}
+
+{% block content %}
+<p class="comment-heading">// <span>knowledge_base</span></p>
+<header class="page-header">
+    <h1 class="page-header__title">rag-mcp<span class="page-header__cursor"></span></h1>
+    <p class="page-header__subtitle">$ query your knowledge &mdash; organized, indexed, retrievable</p>
+</header>
+
+<form class="search-bar" action="/search" method="GET">
+    <input type="text" name="q" placeholder="$ grep -r ..." class="search-bar__input" autocomplete="off">
+    <button type="submit" class="search-bar__btn">search</button>
+</form>
+
+{% if categories %}
+<section class="bubble-section">
+    <p class="bubble-section__label">// <span>knowledge_map</span></p>
+    <div class="bubble-container">
+        <canvas id="bubble-canvas"></canvas>
+    </div>
+</section>
+
+<section class="category-grid">
+    {% for cat in categories %}
+    <a href="/category/{{ cat.category }}" class="category-card">
+        <div class="category-card__header">
+            <span class="category-card__filename">~/{{ cat.category }}</span>
+        </div>
+        <div class="category-card__body">
+            <h2 class="category-card__name">{{ cat.category }}</h2>
+            <p class="category-card__count">{{ cat.doc_count }} file{{ 's' if cat.doc_count != 1 else '' }}</p>
+            <p class="category-card__prompt"><span class="category-card__prompt-symbol">$</span> cd {{ cat.category }}</p>
+        </div>
+    </a>
+    {% endfor %}
+</section>
+{% else %}
+<div class="empty-state">
+    <p class="empty-state__icon">&gt;_</p>
+    <p class="empty-state__text">No files indexed. Add markdown files to <code>knowledge/</code> and restart.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/bubble-diagram.js"></script>
+{% endblock %}
