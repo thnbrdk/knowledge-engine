@@ -9,6 +9,7 @@
 **Storage:** PATH_LOCAL
 **Intake:**  <!-- auto -->
 **Tags:** open
+**Activity ID:** knowledge-engine
 
 **Related:** [Technical Discussion Agent](technical-discussion-agent.md)
 
@@ -16,13 +17,27 @@
 
 ## Outcome
 
-_MVP tested in a real scenario: the Technical Discussion Agent is embedded as a feature inside the Knowledge Engine, several real topics have been captured through discussion, and the results are searchable and retrievable through hybrid search. A parallel lightweight instruction-only version of the discussion agent exists for easy sharing and standalone use._
+An MVP tested in a real scenario: the Technical Discussion Agent embedded as a feature inside the Knowledge Engine, several real topics captured through discussion, and the results searchable and retrievable through hybrid search — plus a parallel lightweight instruction-only agent for easy sharing.
 
 ---
 
 ## Current Focus
 
-_Integrate the Technical Discussion Agent as a feature inside the Knowledge Engine, then validate the full loop — discussion → capture → retrieval — with real topics._
+Integrate the Technical Discussion Agent as a feature, then validate the full loop — discussion → capture → retrieval — with real topics.
+
+---
+
+## Summary
+
+RAG-based knowledge engine with hybrid search, integrating the Discussion Agent.
+
+---
+
+## Highlights
+
+- Layer 2 (Custody) of the Knowledge System Architecture: indexer, FTS, vector store, quality gates.
+- Goal: validate discussion → capture → retrieval through hybrid search.
+- Next: define the agent feature interface; run an end-to-end pilot.
 
 ---
 
